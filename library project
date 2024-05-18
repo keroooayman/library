@@ -1,0 +1,559 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <sstream>
+#include <cstdlib>
+#include <windows.h> // For Windows-specific cursor positioning
+
+using namespace std;
+
+const string bookFilePath = "C:\\Users\\United\\Desktop\\prog 2 project\\outFile.txt";
+const string tempFilePath = "C:\\Users\\United\\Desktop\\prog 2 project\\tempFile.txt";
+const string issueFilePath = "C:\\Users\\United\\Desktop\\prog 2 project\\issuedBooks.txt";
+
+// Book class
+class Book {
+public:
+    string department;
+    string title;
+    string author;
+    int bookID;
+};
+
+// StudentRecord class
+class StudentRecord {
+public:
+    string studentName;
+    int studentID;
+    int bookID;
+    string department;
+};
+
+// Global variables
+vector<Book> books;
+vector<StudentRecord> studentRecords;
+
+// Function to load book data from file
+void loadBookData() {
+    ifstream bookFile(bookFilePath);
+    if (bookFile.is_open()) {
+        string line;
+        while (getline(bookFile, line)) {
+            stringstream ss(line);
+            Book book;
+            getline(ss, book.department, ',');
+            getline(ss, book.title, ',');
+            getline(ss, book.author, ',');
+            ss >> book.bookID;
+            books.push_back(book);
+        }
+        bookFile.close();
+    }
+}
+
+// Function to save book data to file
+void saveBookData() {
+    ofstream bookFile(bookFilePath);
+    if (bookFile.is_open()) {
+        for (const auto& book : books) {
+            bookFile << book.department << "," << book.title << "," << book.author << "," << book.bookID << endl;
+        }
+        bookFile.close();
+    }
+}
+
+// Function to load student record data from file
+void loadStudentRecordData() {
+    ifstream studentRecordFile(issueFilePath);
+    if (studentRecordFile.is_open()) {
+        string line;
+        while (getline(studentRecordFile, line)) {
+            stringstream ss(line);
+            StudentRecord record;
+            getline(ss, record.studentName, ',');
+            ss >> record.studentID;
+            ss.ignore();
+            ss >> record.bookID;
+            ss.ignore();
+            getline(ss, record.department, ',');
+            studentRecords.push_back(record);
+        }
+        studentRecordFile.close();
+    }
+}
+
+// Function to save student record data to file
+void saveStudentRecordData() {
+    ofstream studentRecordFile(issueFilePath);
+    if (studentRecordFile.is_open()) {
+        for (const auto& record : studentRecords) {
+            studentRecordFile << record.studentName << "," << record.studentID << "," << record.bookID << "," << record.department << endl;
+        }
+        studentRecordFile.close();
+    }
+}
+
+// ScreenManager class
+class ScreenManager {
+public:
+    void goToXY(int x, int y) {
+        COORD coord;
+        coord.X = x;
+        coord.Y = y;
+        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
+    }
+};
+
+// MainMenu class
+class MainMenu {
+public:
+    void displayMainMenu() {
+        cout << "Library Management System\n";
+        cout << "------------------------\n";
+        cout << "1. BookManager:\n";
+        cout << "2. StudentRecordManager:\n";
+        cout << "3. ApplicationController:\n";
+        cout << "4. InputManager:\n";
+        cout << "5. ScreenManager\n";
+        cout << "6. Exit\n";
+        cout << "Enter your choice: ";
+    }
+};
+
+// BookManager class
+class BookManager {
+public:
+    void addBook() {
+        Book newBook;
+        cout << "Enter the department: ";
+        cin >> newBook.department;
+        cout << "Enter the title: ";
+        cin.ignore(); // Ensure any leftover newline characters are ignored
+        getline(cin, newBook.title);
+        cout << "Enter the author: ";
+        getline(cin, newBook.author);
+        cout << "Enter the book ID: ";
+        cin >> newBook.bookID;
+        books.push_back(newBook);
+        cout << "Book added successfully." << endl;
+        saveBookData();
+    }
+
+    // Delete a book by ID
+    void deleteBook(int bookID) {
+        ifstream inFile(bookFilePath);
+        ofstream tempFile(tempFilePath);
+
+        if (!inFile || !tempFile) {
+            cerr << "Error: Unable to open files.\n";
+            return;
+        }
+
+        bool found = false;
+        string line;
+        while (getline(inFile, line)) {
+            size_t pos = line.find_last_of(',');
+            if (pos != string::npos) {
+                int id = stoi(line.substr(pos + 1));
+                if (id == bookID) {
+                    found = true;
+                    continue;
+                }
+            }
+            tempFile << line << endl;
+        }
+
+        inFile.close();
+        tempFile.close();
+
+        if (!found) {
+            cerr << "Book with ID " << bookID << " not found.\n";
+            remove(tempFilePath.c_str());
+        }
+        else {
+            remove(bookFilePath.c_str());
+            rename(tempFilePath.c_str(), bookFilePath.c_str());
+            cout << "Book with ID " << bookID << " deleted successfully.\n";
+        }
+    }
+
+    void editBook() {
+        int bookID;
+        cout << "Enter the book ID to edit: ";
+        cin >> bookID;
+        for (auto& book : books) {
+            if (book.bookID == bookID) {
+                cout << "Enter the new department: ";
+                cin >> book.department;
+                cout << "Enter the new title: ";
+                cin.ignore();
+                getline(cin, book.title);
+                cout << "Enter the new author: ";
+                getline(cin, book.author);
+                cout << "Book edited successfully." << endl;
+                saveBookData();
+                return;
+            }
+        }
+        cout << "Book not found." << endl;
+    }
+
+    void searchBook() {
+        string keyword;
+        cout << "Enter the keyword to search (title/author/bookID): ";
+        cin.ignore();
+        getline(cin, keyword);
+        bool found = false;
+        for (const auto& book : books) {
+            if (book.title.find(keyword) != string::npos ||
+                book.author.find(keyword) != string::npos ||
+                to_string(book.bookID).find(keyword) != string::npos) {
+                cout << "Department: " << book.department << endl;
+                cout << "Title: " << book.title << endl;
+                cout << "Author: " << book.author << endl;
+                cout << "Book ID: " << book.bookID << endl;
+                cout << endl;
+                found = true;
+            }
+        }
+        if (!found) {
+            cout << "No books found." << endl;
+        }
+    }
+
+    void issueBook() {
+        int bookID, studentID;
+        string studentName;
+        cout << "Enter the book ID to issue: ";
+        cin >> bookID;
+        cout << "Enter the student ID: ";
+        cin >> studentID;
+        cout << "Enter the student name: ";
+        cin.ignore();
+        getline(cin, studentName);
+
+        bool bookFound = false;
+        string department;
+        for (const auto& book : books) {
+            if (book.bookID == bookID) {
+                bookFound = true;
+                department = book.department;
+                break;
+            }
+        }
+
+        if (bookFound) {
+            StudentRecord record;
+            record.studentName = studentName;
+            record.studentID = studentID;
+            record.bookID = bookID;
+        record.department = department;
+        studentRecords.push_back(record);
+        cout << "Book issued successfully." << endl;
+        saveStudentRecordData();
+    }
+        else {
+            cout << "Book not found." << endl;
+        }
+    }
+
+    void viewBooks() {
+        string department;
+        cout << "Enter the department to view books: ";
+        cin.ignore();
+        getline(cin, department);
+        bool found = false;
+        for (const auto& book : books) {
+            if (book.department == department) {
+                cout << "Title: " << book.title << endl;
+                cout << "Author: " << book.author << endl;
+                cout << "Book ID: " << book.bookID << endl;
+                cout << endl;
+                found = true;
+            }
+        }
+        if (!found) {
+            cout << "No books found in the " << department << " department." << endl;
+        }
+    }
+};
+
+// StudentRecordManager class
+class StudentRecordManager {
+private:
+    vector<StudentRecord> records;
+    const string filePath = "C:\\Users\\United\\Desktop\\prog 2 project\\outFile.txt";
+    const string tempFilePath = "C:\\Users\\United\\Desktop\\prog 2 project\\tempFile.txt";
+    const string issueFilePath = "C:\\Users\\United\\Desktop\\prog 2 project\\issuedBooks.txt";
+
+public:
+    // Function to issue a record
+    void issueRecord() {
+        StudentRecord record;
+        cout << "Enter student name: ";
+        cin.ignore(); // Ignore the newline character from previous input
+        getline(cin, record.studentName);
+        cout << "Enter student ID: ";
+        cin >> record.studentID;
+        cout << "Enter book ID: ";
+        cin >> record.bookID;
+        cout << "Enter department: ";
+        cin.ignore(); // Ignore the newline character from previous input
+        getline(cin, record.department);
+
+        records.push_back(record);
+        cout << "Record issued successfully." << endl;
+
+        // Write the issued record to the issuedBooks.txt file
+        ofstream issueFile(issueFilePath, ios::app); // Append mode
+        if (issueFile.is_open()) {
+            issueFile << record.studentName << "," << record.studentID << "," << record.bookID << "," << record.department << endl;
+            issueFile.close();
+        }
+        else {
+            cerr << "Error: Unable to open file for writing." << endl;
+        }
+    }
+
+    // Function to display all records
+    void displayRecords() {
+        cout << "Student Records:" << endl;
+        ifstream inFile(issueFilePath);
+        if (!inFile) {
+            cerr << "Error: Unable to open file for reading." << endl;
+            return;
+        }
+
+        string line;
+        while (getline(inFile, line)) {
+            stringstream ss(line);
+            StudentRecord record;
+            getline(ss, record.studentName, ',');
+            ss >> record.studentID;
+            ss.ignore();
+            ss >> record.bookID;
+            ss.ignore();
+            getline(ss, record.department, ',');
+            cout << "Name: " << record.studentName << endl;
+            cout << "Student ID: " << record.studentID << endl;
+            cout << "Book ID: " << record.bookID << endl;
+            cout << "Department: " << record.department << endl;
+            cout << endl;
+        }
+        inFile.close();
+    }
+
+    // Function to save records to file
+    void saveRecordsToFile() {
+        ofstream outFile(filePath);
+        if (outFile.is_open()) {
+            for (const auto& record : records) {
+                outFile << record.studentName << "," << record.studentID << "," << record.bookID << "," << record.department << endl;
+            }
+            outFile.close();
+            cout << "Records saved to " << filePath << endl;
+        }
+        else {
+            cerr << "Error: Unable to open file for writing." << endl;
+        }
+    }
+
+    // Function to load records from file
+    void loadRecordsFromFile() {
+        ifstream inFile(filePath);
+        if (!inFile) {
+            cerr << "Error: Unable to open file for reading." << endl;
+            return;
+        }
+
+        records.clear();
+        string line;
+        while (getline(inFile, line)) {
+            stringstream ss(line);
+            StudentRecord record;
+            getline(ss, record.studentName, ',');
+            ss >> record.studentID;
+            ss.ignore();
+            ss >> record.bookID;
+            ss.ignore();
+            getline(ss, record.department, ',');
+            records.push_back(record);
+        }
+        inFile.close();
+        cout << "Records loaded from " << filePath << endl;
+    }
+};
+
+// ApplicationController class
+class ApplicationController {
+public:
+    void closeApplication() {
+        cout << "Closing the application gracefully..." << endl;
+        // Additional code to clean up resources or perform other shutdown tasks can be added here
+        cout << "Application closed." << endl;
+        exit(0); // Terminate the program
+    }
+};
+
+// InputManager class
+class InputManager {
+public:
+    int getData() {
+        int input;
+        cin >> input;
+        return input;
+    }
+
+    int checkID(int bookID) {
+        for (const auto& book : books) {
+            if (book.bookID == bookID) {
+                cout << "Yes, It is found.\n";
+                return bookID;
+            }
+        }
+        cout << "Not found.\n";
+        return -1; // Book ID not found
+    }
+};
+
+// SecurityManager class
+class SecurityManager {
+public:
+    void passwordAuthentication() {
+        string password;
+        cout << "Enter the password: ";
+        cin >> password;
+        // Code to authenticate the password
+        // For simplicity, we assume the password is "admin"
+        if (password == "admin") {
+            cout << "Authentication successful." << endl;
+        }
+        else {
+            cout << "Authentication failed. Access denied." << endl;
+            exit(0); // Terminate the program
+        }
+    }
+};
+
+int main() {
+    loadBookData();
+    loadStudentRecordData();
+    SecurityManager securityManager;
+    securityManager.passwordAuthentication();
+
+    ApplicationController appController;
+    MainMenu mainMenu;
+    BookManager bookManager;
+    StudentRecordManager studentRecordManager;
+    InputManager inputManager;
+    ScreenManager screenManager;
+
+    char mainChoice, subChoice;
+    int a, b, c;
+
+    do {
+        mainMenu.displayMainMenu();
+        mainChoice = inputManager.getData();
+
+        switch (mainChoice) {
+        case 1:
+            do {
+                cout << "Welcome to the Library Management System" << endl;
+                cout << "a. Add Book" << endl;
+                cout << "b. Delete Book" << endl;
+                cout << "c. Edit Book" << endl;
+                cout << "d. Search Book" << endl;
+                cout << "e. Issue Book" << endl;
+                cout << "f. View Books" << endl;
+                cout << "g. Return to Main Menu" << endl;
+                cout << "Enter your choice: ";
+                cin >> subChoice;
+
+                switch (subChoice) {
+                case 'a':
+                    bookManager.addBook();
+                    break;
+                case 'b': {
+                    int bookID;
+                    cout << "Enter the book ID to delete: ";
+                    cin >> bookID;
+                    bookManager.deleteBook(bookID);
+                    break;
+                }
+                case 'c':
+                    bookManager.editBook();
+                    break;
+                case 'd':
+                    bookManager.searchBook();
+                    break;
+                case 'e':
+                    bookManager.issueBook();
+                    break;
+                case 'f':
+                    bookManager.viewBooks();
+                    break;
+                case 'g':
+                    cout << "Returning to Main Menu." << endl;
+                    break;
+                default:
+                    cout << "Invalid choice. Please try again." << endl;
+                }
+            } while (subChoice != 'g');
+            break;
+        case 2:
+            int choice;
+            do {
+                cout << "1. Issue Record" << endl;
+                cout << "2. Display Records" << endl;
+                cout << "3. Save Records to File" << endl;
+                cout << "4. Load Records from File" << endl;
+                cout << "5. Return to Main Menu" << endl;
+                cout << "Enter your choice: ";
+                cin >> choice;
+
+                switch (choice) {
+                case 1:
+                    studentRecordManager.issueRecord();
+                    break;
+                case 2:
+                    studentRecordManager.displayRecords();
+                    break;
+                case 3:
+                    studentRecordManager.saveRecordsToFile();
+                    break;
+                case 4:
+                    studentRecordManager.loadRecordsFromFile();
+                    break;
+                case 5:
+                    cout << "Returning to Main Menu." << endl;
+                    break;
+                default:
+                    cout << "Invalid choice. Try again." << endl;
+                }
+            } while (choice != 5);
+            break;
+        case 3:
+            appController.closeApplication();
+            break;
+        case 4:
+            cout << "Enter an ID to check in library or not: ";
+            cin >> c;
+            inputManager.checkID(c);
+            break;
+        case 5:
+            cout << "Enter two numbers: ";
+            cin >> a >> b;
+            screenManager.goToXY(a, b);
+            cout << "This text is positioned at (" << a << "," << b << ")" << endl;
+            break;
+        case 6:
+            cout << "Exiting the program." << endl;
+            break;
+        default:
+            cout << "Invalid choice. Please try again." << endl;
+        }
+    } while (mainChoice != 6);
+
+    return 0;
+}
